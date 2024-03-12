@@ -1,0 +1,22 @@
+[package]
+name = "succinct_sn"
+version = "0.1.0"
+
+[scripts]
+test = "snforge test"
+
+[dependencies]
+alexandria_bytes = { git = "https://github.com/keep-starknet-strange/alexandria.git", rev = "8ddf0243" }
+openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", rev = "2815498" }
+snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry", tag = "v0.17.0" }
+starknet = ">=2.5.3"
+
+[[target.starknet-contract]]
+casm = true
+sierra = true
+
+[cairo]
+sierra-replace-ids = true
+
+[tool.fmt]
+sort-module-level-items = true

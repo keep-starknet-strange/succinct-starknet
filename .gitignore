@@ -1,0 +1,18 @@
+# Sys files
+**/.DS_Store
+
+# Scarb and Starknet Foundry
+**/target
+.snfoundry_cache/
+
+# Starkli
+**/account.json
+**/keystore.json
+
+# mdBook
+book/book/
+
+# All Contributors CLI
+package.json
+yarn.lock
+node_modules/
