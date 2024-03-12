@@ -15,8 +15,5 @@ starknet = ">=2.5.3"
 casm = true
 sierra = true
 
-[cairo]
-sierra-replace-ids = true
-
 [tool.fmt]
 sort-module-level-items = true
