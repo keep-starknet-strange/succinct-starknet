@@ -242,7 +242,8 @@ mod succinct_fee_vault {
             assert(!_token.is_zero(), Errors::InvalidToken);
             let erc20_dispatcher = IERC20Dispatcher { contract_address: _token };
             assert(
-                erc20_dispatcher.balance_of(contract_address) >= _amount, Errors::InsufficientBalance
+                erc20_dispatcher.balance_of(contract_address) >= _amount,
+                Errors::InsufficientBalance
             );
             let success = erc20_dispatcher.transfer(_to, _amount);
             assert(success, Errors::ERC20TransferFailed);
