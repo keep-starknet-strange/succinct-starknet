@@ -13,7 +13,3 @@ starknet = ">=2.5.3"
 
 [tool.fmt]
 sort-module-level-items = true
-
-[[target.starknet-contract]]
-casm = true
-sierra = true
