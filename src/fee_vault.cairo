@@ -72,9 +72,10 @@ mod succinct_fee_vault {
         /// Data commitment for specified block range does not exist
         const InvalidAccount: felt252 = 'Invalid account';
         const InvalidToken: felt252 = 'Invalid token';
-        const InsufficentAllowance: felt252 = 'Insufficent allowance';
+        const InsufficientAllowance: felt252 = 'Insufficient allowance';
         const OnlyDeductor: felt252 = 'Only deductor allowed';
-        const InsufficentBalance: felt252 = 'Insufficent balance';
+        const InsufficientBalance: felt252 = 'Insufficient balance';
+        const ERC20TransferFailed: felt252 = 'ERC20 transfer failed';
     }
 
     #[abi(embed_v0)]
@@ -180,8 +181,9 @@ mod succinct_fee_vault {
             assert(!_token.is_zero(), Errors::InvalidToken);
             let erc20_dispatcher = IERC20Dispatcher { contract_address: _token };
             let allowance = erc20_dispatcher.allowance(caller_address, contract_address);
-            assert(allowance >= _amount, Errors::InsufficentAllowance);
-            erc20_dispatcher.transfer_from(caller_address, contract_address, _amount);
+            assert(allowance >= _amount, Errors::InsufficientAllowance);
+            let success = erc20_dispatcher.transfer_from(caller_address, contract_address, _amount);
+            assert(success, Errors::ERC20TransferFailed);
             let current_balance = self.balances.read((_token, _account));
             self.balances.write((_token, _account), current_balance + _amount);
             self.emit(Received { account: _account, token: _token, amount: _amount });
@@ -214,7 +216,7 @@ mod succinct_fee_vault {
             assert(!_account.is_zero(), Errors::InvalidAccount);
             assert(!_token.is_zero(), Errors::InvalidToken);
             let current_balance = self.balances.read((_token, _account));
-            assert(current_balance >= _amount, Errors::InsufficentBalance);
+            assert(current_balance >= _amount, Errors::InsufficientBalance);
             self.balances.write((_token, _account), current_balance - _amount);
             self.emit(Deducted { account: _account, token: _token, amount: _amount });
         }
@@ -240,9 +242,11 @@ mod succinct_fee_vault {
             assert(!_token.is_zero(), Errors::InvalidToken);
             let erc20_dispatcher = IERC20Dispatcher { contract_address: _token };
             assert(
-                erc20_dispatcher.balance_of(contract_address) >= _amount, Errors::InsufficentBalance
+                erc20_dispatcher.balance_of(contract_address) >= _amount,
+                Errors::InsufficientBalance
             );
-            erc20_dispatcher.transfer(_to, _amount);
+            let success = erc20_dispatcher.transfer(_to, _amount);
+            assert(success, Errors::ERC20TransferFailed);
             self.emit(Collected { to: _to, token: _token, amount: _amount })
         }
     }
