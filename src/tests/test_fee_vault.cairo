@@ -157,7 +157,7 @@ fn fee_vault_deposit_fails_if_null_token() {
 }
 
 #[test]
-#[should_panic(expected: ('Insufficent allowance',))]
+#[should_panic(expected: ('Insufficient allowance',))]
 fn fee_vault_deposit_fails_if_insufficent_allowance() {
     let (erc20, fee_vault) = setup_contracts();
     fund_spender(erc20);
@@ -241,7 +241,7 @@ fn fee_vault_deduct_fails_if_not_deductor() {
 }
 
 #[test]
-#[should_panic(expected: ('Insufficent balance',))]
+#[should_panic(expected: ('Insufficient balance',))]
 fn fee_vault_deduct_fails_if_insufficent_balance() {
     let (erc20, fee_vault) = setup_contracts();
 
@@ -335,7 +335,7 @@ fn fee_vault_collect_fails_if_not_owner() {
 }
 
 #[test]
-#[should_panic(expected: ('Insufficent balance',))]
+#[should_panic(expected: ('Insufficient balance',))]
 fn fee_vault_collect_fails_if_insufficent_balance() {
     let (erc20, fee_vault) = setup_contracts();
 
