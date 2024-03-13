@@ -9,6 +9,8 @@ trait IFunctionVerifier<TContractState> {
 
 #[starknet::interface]
 trait ISuccinctGateway<TContractState> {
+    fn get_prover(self: @TContractState, prover: ContractAddress) -> bool;
+    fn set_prover(ref self: TContractState, prover: ContractAddress, is_prover: bool);
     fn request_callback(
         ref self: TContractState,
         function_id: u256,
