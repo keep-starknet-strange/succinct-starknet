@@ -15,3 +15,5 @@ starknet = ">=2.5.3"
 sort-module-level-items = true
 
 [[target.starknet-contract]]
+casm = true
+sierra = true
