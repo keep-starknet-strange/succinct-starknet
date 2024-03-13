@@ -1,36 +1,48 @@
 use debug::PrintTrait;
 use openzeppelin::tests::utils::constants::{OWNER, NEW_OWNER, SPENDER};
+use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{
     declare, ContractClassTrait, start_prank, stop_prank, CheatTarget, spy_events, SpyOn, EventSpy
 };
-use starknet::ContractAddress;
-use starknet::contract_address_const;
-use starknet::get_caller_address;
+use starknet::{ContractAddress, contract_address_const, get_caller_address};
 use succinct_sn::fee_vault::succinct_fee_vault;
-use succinct_sn::function_registry::erc20_mock::{
-    IMockERC20Dispatcher, IMockERC20DispatcherTrait, MockERC20
-};
 use succinct_sn::interfaces::{IFeeVaultDispatcher, IFeeVaultDispatcherTrait};
-const TOTAL_SUPPPLY: u256 = 0x100000000000000000000000000000001;
 
+const VALUE: u256 = 0x10000;
+const INSUFFICIENT_VALUE: u256 = 0x1000;
+const DEDUCTION: u256 = 0x8000;
+const TOTAL_SUPPLY: u256 = 0x100000000000000000000000000000001;
 
-fn setup_contracts() -> (IMockERC20Dispatcher, IFeeVaultDispatcher) {
-    let token_class = declare('MockERC20');
-    let token_calldata = array!['FeeToken', 'FT'];
-    let token_address = token_class.deploy(@token_calldata).unwrap();
+fn setup_contracts() -> (IERC20Dispatcher, IFeeVaultDispatcher) {
+    let mut calldata = array![];
+    calldata.append_serde('FeeToken');
+    calldata.append_serde('FT');
+    calldata.append_serde(TOTAL_SUPPLY);
+    calldata.append_serde(OWNER());
+    let token_class = declare('SnakeERC20Mock');
+    let token_address = token_class.deploy(@calldata).unwrap();
+
     let fee_vault_class = declare('succinct_fee_vault');
     let fee_calldata = array![token_address.into(), OWNER().into()];
     let fee_vault_address = fee_vault_class.deploy(@fee_calldata).unwrap();
     (
-        IMockERC20Dispatcher { contract_address: token_address },
+        IERC20Dispatcher { contract_address: token_address },
         IFeeVaultDispatcher { contract_address: fee_vault_address }
     )
+}
+
+fn fund_spender(erc20: IERC20Dispatcher) {
+    start_prank(CheatTarget::One(erc20.contract_address), OWNER());
+    erc20.transfer(SPENDER(), VALUE);
+    stop_prank(CheatTarget::One(erc20.contract_address));
 }
 
 #[test]
 fn fee_vault_set_native_currency_address() {
     let (_, fee_vault) = setup_contracts();
     let new_currency_address = contract_address_const::<0x12345>();
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
     fee_vault.set_native_currency(new_currency_address);
     assert(
@@ -43,6 +55,7 @@ fn fee_vault_set_native_currency_address() {
 #[should_panic(expected: ('Invalid token',))]
 fn fee_vault_set_native_currency_address_fails_null_address() {
     let (_, fee_vault) = setup_contracts();
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
     let new_currency_address = contract_address_const::<0>();
     fee_vault.set_native_currency(new_currency_address);
@@ -54,6 +67,7 @@ fn fee_vault_set_native_currency_address_fails_null_address() {
 fn test_vault_set_native_currency_fails_not_owner() {
     let (_, fee_vault) = setup_contracts();
     let new_currency_address = contract_address_const::<0x1234>();
+
     fee_vault.set_native_currency(new_currency_address);
 }
 
@@ -94,11 +108,13 @@ fn fee_vault_remove_deductor_fails_if_not_owner() {
 #[test]
 fn fee_vault_deposit_native() {
     let (erc20, fee_vault) = setup_contracts();
-    erc20.mint_to(SPENDER(), 0x10000);
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
     let fee = starknet::info::get_tx_info().unbox().max_fee.into();
     erc20.approve(fee_vault.contract_address, fee);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
     fee_vault.deposit_native(SPENDER());
     assert(
@@ -111,14 +127,16 @@ fn fee_vault_deposit_native() {
 #[test]
 fn fee_vault_deposit() {
     let (erc20, fee_vault) = setup_contracts();
-    erc20.mint_to(SPENDER(), 0x10000);
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
-    erc20.approve(fee_vault.contract_address, 0x10000);
+    erc20.approve(fee_vault.contract_address, VALUE);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
-    fee_vault.deposit(SPENDER(), erc20.contract_address, 0x10000);
+    fee_vault.deposit(SPENDER(), erc20.contract_address, VALUE);
     assert(
-        fee_vault.get_account_balance(SPENDER(), erc20.contract_address) == 0x10000,
+        fee_vault.get_account_balance(SPENDER(), erc20.contract_address) == VALUE,
         'balances deposit not updated'
     );
     stop_prank(CheatTarget::One(fee_vault.contract_address));
@@ -142,11 +160,12 @@ fn fee_vault_deposit_fails_if_null_token() {
 #[should_panic(expected: ('Insufficent allowance',))]
 fn fee_vault_deposit_fails_if_insufficent_allowance() {
     let (erc20, fee_vault) = setup_contracts();
-    erc20.mint_to(SPENDER(), 0x10000);
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
-    fee_vault.deposit(SPENDER(), erc20.contract_address, 0x10000);
+    fee_vault.deposit(SPENDER(), erc20.contract_address, VALUE);
     assert(
-        fee_vault.get_account_balance(SPENDER(), erc20.contract_address) == 0x10000,
+        fee_vault.get_account_balance(SPENDER(), erc20.contract_address) == VALUE,
         'balances deposit not updated'
     );
     stop_prank(CheatTarget::One(fee_vault.contract_address));
@@ -156,13 +175,17 @@ fn fee_vault_deposit_fails_if_insufficent_allowance() {
 fn fee_vault_deduct_native() {
     let (erc20, fee_vault) = setup_contracts();
     let fee = starknet::info::get_tx_info().unbox().max_fee.into();
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
     fee_vault.add_deductor(SPENDER());
     stop_prank(CheatTarget::One(fee_vault.contract_address));
-    erc20.mint_to(SPENDER(), 0x10000);
+
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
-    erc20.approve(fee_vault.contract_address, 0x10000);
+    erc20.approve(fee_vault.contract_address, VALUE);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
     fee_vault.deposit_native(SPENDER());
     assert(
@@ -180,18 +203,22 @@ fn fee_vault_deduct_native() {
 #[test]
 fn fee_vault_deduct() {
     let (erc20, fee_vault) = setup_contracts();
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
     fee_vault.add_deductor(SPENDER());
     stop_prank(CheatTarget::One(fee_vault.contract_address));
-    erc20.mint_to(SPENDER(), 0x10000);
+
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
-    erc20.approve(fee_vault.contract_address, 0x10000);
+    erc20.approve(fee_vault.contract_address, VALUE);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
-    fee_vault.deposit(SPENDER(), erc20.contract_address, 0x10000);
+    fee_vault.deposit(SPENDER(), erc20.contract_address, VALUE);
     fee_vault.deduct(SPENDER(), erc20.contract_address, 0x8000);
     assert(
-        fee_vault.get_account_balance(SPENDER(), erc20.contract_address) == 0x10000 - 0x8000,
+        fee_vault.get_account_balance(SPENDER(), erc20.contract_address) == VALUE - 0x8000,
         'balances deduct not updated'
     );
     stop_prank(CheatTarget::One(fee_vault.contract_address));
@@ -201,12 +228,14 @@ fn fee_vault_deduct() {
 #[should_panic(expected: ('Only deductor allowed',))]
 fn fee_vault_deduct_fails_if_not_deductor() {
     let (erc20, fee_vault) = setup_contracts();
-    erc20.mint_to(SPENDER(), 0x10000);
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
-    erc20.approve(fee_vault.contract_address, 0x10000);
+    erc20.approve(fee_vault.contract_address, VALUE);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
-    fee_vault.deposit(SPENDER(), erc20.contract_address, 0x10000);
+    fee_vault.deposit(SPENDER(), erc20.contract_address, VALUE);
     fee_vault.deduct(SPENDER(), erc20.contract_address, 0x8000);
     stop_prank(CheatTarget::One(fee_vault.contract_address));
 }
@@ -215,16 +244,20 @@ fn fee_vault_deduct_fails_if_not_deductor() {
 #[should_panic(expected: ('Insufficent balance',))]
 fn fee_vault_deduct_fails_if_insufficent_balance() {
     let (erc20, fee_vault) = setup_contracts();
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
     fee_vault.add_deductor(SPENDER());
     stop_prank(CheatTarget::One(fee_vault.contract_address));
-    erc20.mint_to(SPENDER(), 0x10000);
+
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
-    erc20.approve(fee_vault.contract_address, 0x10000);
+    erc20.approve(fee_vault.contract_address, VALUE);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
-    fee_vault.deposit(SPENDER(), erc20.contract_address, 0x1000);
-    fee_vault.deduct(SPENDER(), erc20.contract_address, 0x8000);
+    fee_vault.deposit(SPENDER(), erc20.contract_address, INSUFFICIENT_VALUE);
+    fee_vault.deduct(SPENDER(), erc20.contract_address, DEDUCTION);
     stop_prank(CheatTarget::One(fee_vault.contract_address));
 }
 
@@ -232,20 +265,25 @@ fn fee_vault_deduct_fails_if_insufficent_balance() {
 #[test]
 fn fee_vault_collect() {
     let (erc20, fee_vault) = setup_contracts();
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
     fee_vault.add_deductor(SPENDER());
     stop_prank(CheatTarget::One(fee_vault.contract_address));
-    erc20.mint_to(SPENDER(), 0x10000);
+
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
-    erc20.approve(fee_vault.contract_address, 0x10000);
+    erc20.approve(fee_vault.contract_address, VALUE);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
-    fee_vault.deposit(SPENDER(), erc20.contract_address, 0x10000);
-    fee_vault.deduct(SPENDER(), erc20.contract_address, 0x8000);
+    fee_vault.deposit(SPENDER(), erc20.contract_address, VALUE);
+    fee_vault.deduct(SPENDER(), erc20.contract_address, DEDUCTION);
     stop_prank(CheatTarget::One(fee_vault.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
-    fee_vault.collect(OWNER(), erc20.contract_address, 0x10000);
-    assert(erc20.balance_of(OWNER()) == 0x10000, 'balance collect failed');
+    fee_vault.collect(OWNER(), erc20.contract_address, VALUE);
+    assert(erc20.balance_of(OWNER()) == TOTAL_SUPPLY, 'balance collect failed');
     stop_prank(CheatTarget::One(fee_vault.contract_address));
 }
 
@@ -253,20 +291,25 @@ fn fee_vault_collect() {
 #[test]
 fn fee_vault_collect_native() {
     let (erc20, fee_vault) = setup_contracts();
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
     fee_vault.add_deductor(SPENDER());
     stop_prank(CheatTarget::One(fee_vault.contract_address));
-    erc20.mint_to(SPENDER(), 0x10000);
+
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
-    erc20.approve(fee_vault.contract_address, 0x10000);
+    erc20.approve(fee_vault.contract_address, VALUE);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
-    fee_vault.deposit(SPENDER(), erc20.contract_address, 0x10000);
-    fee_vault.deduct(SPENDER(), erc20.contract_address, 0x8000);
+    fee_vault.deposit(SPENDER(), erc20.contract_address, VALUE);
+    fee_vault.deduct(SPENDER(), erc20.contract_address, DEDUCTION);
     stop_prank(CheatTarget::One(fee_vault.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
-    fee_vault.collect_native(OWNER(), 0x10000);
-    assert(erc20.balance_of(OWNER()) == 0x10000, 'balance collect failed');
+    fee_vault.collect_native(OWNER(), VALUE);
+    assert(erc20.balance_of(OWNER()) == TOTAL_SUPPLY, 'balance collect failed');
     stop_prank(CheatTarget::One(fee_vault.contract_address));
 }
 
@@ -274,16 +317,20 @@ fn fee_vault_collect_native() {
 #[should_panic(expected: ('Caller is not the owner',))]
 fn fee_vault_collect_fails_if_not_owner() {
     let (erc20, fee_vault) = setup_contracts();
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
     fee_vault.add_deductor(SPENDER());
     stop_prank(CheatTarget::One(fee_vault.contract_address));
-    erc20.mint_to(SPENDER(), 0x10000);
+
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
-    erc20.approve(fee_vault.contract_address, 0x10000);
+    erc20.approve(fee_vault.contract_address, VALUE);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
-    fee_vault.deposit(SPENDER(), erc20.contract_address, 0x10000);
-    fee_vault.collect(SPENDER(), erc20.contract_address, 0x10000);
+    fee_vault.deposit(SPENDER(), erc20.contract_address, VALUE);
+    fee_vault.collect(SPENDER(), erc20.contract_address, VALUE);
     stop_prank(CheatTarget::One(fee_vault.contract_address));
 }
 
@@ -291,17 +338,22 @@ fn fee_vault_collect_fails_if_not_owner() {
 #[should_panic(expected: ('Insufficent balance',))]
 fn fee_vault_collect_fails_if_insufficent_balance() {
     let (erc20, fee_vault) = setup_contracts();
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
     fee_vault.add_deductor(SPENDER());
     stop_prank(CheatTarget::One(fee_vault.contract_address));
-    erc20.mint_to(SPENDER(), 0x10000);
+
+    fund_spender(erc20);
+
     start_prank(CheatTarget::One(erc20.contract_address), SPENDER());
-    erc20.approve(fee_vault.contract_address, 0x10000);
+    erc20.approve(fee_vault.contract_address, VALUE);
     stop_prank(CheatTarget::One(erc20.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), SPENDER());
-    fee_vault.deposit(SPENDER(), erc20.contract_address, 0x1000);
+    fee_vault.deposit(SPENDER(), erc20.contract_address, INSUFFICIENT_VALUE);
     stop_prank(CheatTarget::One(fee_vault.contract_address));
+
     start_prank(CheatTarget::One(fee_vault.contract_address), OWNER());
-    fee_vault.collect(OWNER(), erc20.contract_address, 0x10000);
+    fee_vault.collect(OWNER(), erc20.contract_address, VALUE);
     stop_prank(CheatTarget::One(fee_vault.contract_address));
 }
