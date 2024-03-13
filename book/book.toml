@@ -1,0 +1,10 @@
+[book]
+authors = ["b-j-roberts", "drspacemn"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Succinct Starknet"
+
+[output.html]
+git-repository-url = "https://github.com/keep-starknet-strange/succinct-starknet"
+edit-url-template = "https://github.com/keep-starknet-strange/succinct-starknet/issues/new/choose"

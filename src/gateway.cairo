@@ -260,6 +260,8 @@ mod succinct_gateway {
                 .verify(input_hash, output_hash, proof);
             assert(is_valid_proof, Errors::INVALID_PROOF);
 
+            // Note : call_contract_syscall will always revert if the callback fails,
+            //        so we don't need to check the result
             self.is_callback.write(true);
             call_contract_syscall(
                 address: callback_addr,
@@ -304,6 +306,8 @@ mod succinct_gateway {
             let (_, next_header) = output.read_u256(offset);
             self.verified_output.write((data_commitment, next_header));
 
+            // Note : call_contract_syscall will always revert if the callback fails,
+            //        so we don't need to check the result
             call_contract_syscall(
                 address: callback_addr,
                 entry_point_selector: callback_selector,
