@@ -4,7 +4,8 @@ mod succinct_gateway {
     use core::array::SpanTrait;
     use openzeppelin::access::ownable::{OwnableComponent as ownable_cpt, interface::IOwnable};
     use openzeppelin::security::reentrancyguard::ReentrancyGuardComponent;
-    use starknet::{ContractAddress, SyscallResultTrait, syscalls::call_contract_syscall};
+    use openzeppelin::upgrades::{interface::IUpgradeable, upgradeable::UpgradeableComponent};
+    use starknet::{ClassHash, ContractAddress, SyscallResultTrait, syscalls::call_contract_syscall};
     use succinct_sn::function_registry::component::function_registry_cpt;
     use succinct_sn::function_registry::interfaces::IFunctionRegistry;
     use succinct_sn::interfaces::{
@@ -19,6 +20,7 @@ mod succinct_gateway {
     component!(
         path: ReentrancyGuardComponent, storage: reentrancy_guard, event: ReentrancyGuardEvent
     );
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
 
     impl ReentrancyGuardInternalImpl = ReentrancyGuardComponent::InternalImpl<ContractState>;
     #[abi(embed_v0)]
@@ -27,6 +29,7 @@ mod succinct_gateway {
     #[abi(embed_v0)]
     impl OwnableImpl = ownable_cpt::OwnableImpl<ContractState>;
     impl OwnableInternalImpl = ownable_cpt::InternalImpl<ContractState>;
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
 
     #[storage]
     struct Storage {
@@ -43,7 +46,9 @@ mod succinct_gateway {
         #[substorage(v0)]
         ownable: ownable_cpt::Storage,
         #[substorage(v0)]
-        reentrancy_guard: ReentrancyGuardComponent::Storage
+        reentrancy_guard: ReentrancyGuardComponent::Storage,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
     }
 
     #[event]
@@ -58,7 +63,9 @@ mod succinct_gateway {
         #[flat]
         OwnableEvent: ownable_cpt::Event,
         #[flat]
-        ReentrancyGuardEvent: ReentrancyGuardComponent::Event
+        ReentrancyGuardEvent: ReentrancyGuardComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -118,6 +125,19 @@ mod succinct_gateway {
     ) {
         self.ownable.initializer(owner);
         self.fee_vault_address.write(fee_vault_address);
+    }
+
+    #[abi(embed_v0)]
+    impl Upgradeable of IUpgradeable<ContractState> {
+        /// Upgrades the contract to a new implementation.
+        ///
+        /// # Arguments
+        ///
+        /// * `new_class_hash` - The class hash of the new implementation.
+        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable._upgrade(new_class_hash);
+        }
     }
 
     #[abi(embed_v0)]
