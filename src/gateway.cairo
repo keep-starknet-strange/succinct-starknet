@@ -58,6 +58,7 @@ mod succinct_gateway {
         RequestCallback: RequestCallback,
         RequestFulfilled: RequestFulfilled,
         Call: Call,
+        SetFeeVault: SetFeeVault,
         #[flat]
         FunctionRegistryEvent: function_registry_cpt::Event,
         #[flat]
@@ -112,6 +113,12 @@ mod succinct_gateway {
         output_hash: u256,
     }
 
+    #[derive(Drop, starknet::Event)]
+    struct SetFeeVault {
+        old_fee_vault: ContractAddress,
+        new_fee_vault: ContractAddress,
+    }
+
     mod Errors {
         const INVALID_CALL: felt252 = 'Invalid call to verify';
         const INVALID_REQUEST: felt252 = 'Invalid request for fullfilment';
@@ -157,6 +164,12 @@ mod succinct_gateway {
         /// * `_fee_vault` - The fee vault address.
         fn set_fee_vault(ref self: ContractState, _fee_vault: ContractAddress) {
             self.ownable.assert_only_owner();
+            self
+                .emit(
+                    SetFeeVault {
+                        old_fee_vault: self.fee_vault_address.read(), new_fee_vault: _fee_vault,
+                    }
+                );
             self.fee_vault_address.write(_fee_vault);
         }
         /// Creates a onchain request for a proof. The output and proof is fulfilled asynchronously
