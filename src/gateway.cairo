@@ -142,6 +142,23 @@ mod succinct_gateway {
 
     #[abi(embed_v0)]
     impl ISuccinctGatewayImpl of ISuccinctGateway<ContractState> {
+        /// Returns the fee vault address.
+        ///
+        /// # Returns
+        ///
+        /// * The fee vault address.
+        fn get_fee_vault(self: @ContractState) -> ContractAddress {
+            self.fee_vault_address.read()
+        }
+        /// Sets the fee vault address.
+        ///
+        /// # Arguments
+        ///
+        /// * `_fee_vault` - The fee vault address.
+        fn set_fee_vault(ref self: ContractState, _fee_vault: ContractAddress) {
+            self.ownable.assert_only_owner();
+            self.fee_vault_address.write(_fee_vault);
+        }
         /// Creates a onchain request for a proof. The output and proof is fulfilled asynchronously
         /// by the provided callback.
         ///
