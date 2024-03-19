@@ -1,5 +1,4 @@
 use debug::PrintTrait;
-use openzeppelin::tests::utils::constants::{OWNER, NEW_OWNER, SPENDER};
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin::utils::serde::SerializedAppend;
 use snforge_std::{
@@ -14,16 +13,30 @@ const INSUFFICIENT_VALUE: u256 = 0x1000;
 const DEDUCTION: u256 = 0x8000;
 const TOTAL_SUPPLY: u256 = 0x100000000000000000000000000000001;
 
+fn OWNER() -> ContractAddress {
+    contract_address_const::<'OWNER'>()
+}
+
+fn NEW_OWNER() -> ContractAddress {
+    contract_address_const::<'NEW_OWNER'>()
+}
+
+fn SPENDER() -> ContractAddress {
+    contract_address_const::<'SPENDER'>()
+}
+
 fn setup_contracts() -> (IERC20Dispatcher, IFeeVaultDispatcher) {
     let mut calldata = array![];
-    calldata.append_serde('FeeToken');
-    calldata.append_serde('FT');
+    let token_name: ByteArray = "FeeToken";
+    let token_symbol: ByteArray = "FT";
+    calldata.append_serde(token_name);
+    calldata.append_serde(token_symbol);
     calldata.append_serde(TOTAL_SUPPLY);
     calldata.append_serde(OWNER());
-    let token_class = declare('SnakeERC20Mock');
+    let token_class = declare("SnakeERC20Mock");
     let token_address = token_class.deploy(@calldata).unwrap();
 
-    let fee_vault_class = declare('succinct_fee_vault');
+    let fee_vault_class = declare("succinct_fee_vault");
     let fee_calldata = array![token_address.into(), OWNER().into()];
     let fee_vault_address = fee_vault_class.deploy(@fee_calldata).unwrap();
     (

@@ -31,8 +31,8 @@ mod SnakeERC20Mock {
     #[constructor]
     fn constructor(
         ref self: ContractState,
-        name: felt252,
-        symbol: felt252,
+        name: ByteArray,
+        symbol: ByteArray,
         initial_supply: u256,
         recipient: ContractAddress
     ) {
