@@ -9,6 +9,8 @@ trait IFunctionVerifier<TContractState> {
 
 #[starknet::interface]
 trait ISuccinctGateway<TContractState> {
+    fn get_fee_vault(self: @TContractState) -> ContractAddress;
+    fn set_fee_vault(ref self: TContractState, _fee_vault: ContractAddress);
     fn request_callback(
         ref self: TContractState,
         function_id: u256,
