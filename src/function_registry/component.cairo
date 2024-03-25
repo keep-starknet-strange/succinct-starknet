@@ -10,6 +10,7 @@ mod errors {
 #[starknet::component]
 mod function_registry_cpt {
     use alexandria_bytes::{Bytes, BytesTrait};
+    use alexandria_encoding::sol_abi::SolAbiEncodeTrait;
     use core::traits::Into;
     use starknet::info::get_caller_address;
     use starknet::{ContractAddress, contract_address_const};
@@ -62,10 +63,10 @@ mod function_registry_cpt {
         fn get_function_id(
             self: @ComponentState<TContractState>, owner: ContractAddress, name: felt252
         ) -> u256 {
-            let mut function_id_digest = BytesTrait::new_empty();
-            function_id_digest.append_felt252(owner.into());
-            function_id_digest.append_felt252(name);
-            function_id_digest.keccak()
+            BytesTrait::new_empty()
+                .encode_packed(owner)
+                .encode_packed(name)
+                .keccak()
         }
         fn register_function(
             ref self: ComponentState<TContractState>,
