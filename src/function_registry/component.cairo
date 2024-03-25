@@ -63,10 +63,7 @@ mod function_registry_cpt {
         fn get_function_id(
             self: @ComponentState<TContractState>, owner: ContractAddress, name: felt252
         ) -> u256 {
-            BytesTrait::new_empty()
-                .encode_packed(owner)
-                .encode_packed(name)
-                .keccak()
+            BytesTrait::new_empty().encode_packed(owner).encode_packed(name).keccak()
         }
         fn register_function(
             ref self: ComponentState<TContractState>,
