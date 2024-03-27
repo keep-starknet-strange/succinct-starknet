@@ -53,6 +53,7 @@ mod succinct_gateway {
         RequestCallback: RequestCallback,
         RequestFulfilled: RequestFulfilled,
         Call: Call,
+        ProverUpdated: ProverUpdated,
         #[flat]
         FunctionRegistryEvent: function_registry_cpt::Event,
         #[flat]
@@ -105,6 +106,13 @@ mod succinct_gateway {
         output_hash: u256,
     }
 
+    #[derive(Drop, starknet::Event)]
+    struct ProverUpdated {
+        #[key]
+        prover: ContractAddress,
+        is_prover: bool,
+    }
+
     mod Errors {
         const INVALID_CALL: felt252 = 'Invalid call to verify';
         const INVALID_REQUEST: felt252 = 'Invalid request for fullfilment';
@@ -122,6 +130,32 @@ mod succinct_gateway {
 
     #[abi(embed_v0)]
     impl ISuccinctGatewayImpl of ISuccinctGateway<ContractState> {
+        /// Returns whether the specified prover is allowed or disallowed.
+        ///
+        /// # Arguments
+        ///
+        /// * `prover` - The prover address.
+        ///
+        /// # Returns
+        ///
+        /// * `is_prover` - Whether the prover is allowed or disallowed.
+        fn get_prover(self: @ContractState, prover: ContractAddress) -> bool {
+            self.allowed_provers.read(prover)
+        }
+
+        /// Sets the specified prover to be allowed or disallowed.
+        ///
+        /// # Arguments
+        /// 
+        /// * `prover` - The prover address.
+        /// * `is_prover` - Whether the prover is allowed or disallowed.
+        fn set_prover(ref self: ContractState, prover: ContractAddress, is_prover: bool) {
+            self.ownable.assert_only_owner();
+            self.allowed_provers.write(prover, is_prover);
+            self.emit(ProverUpdated { prover, is_prover });
+        }
+
+
         /// Creates a onchain request for a proof. The output and proof is fulfilled asynchronously
         /// by the provided callback.
         ///
@@ -242,6 +276,7 @@ mod succinct_gateway {
             proof: Bytes
         ) {
             self.reentrancy_guard.start();
+            self.assert_only_prover();
             let request_hash = InternalImpl::_request_hash(
                 nonce,
                 function_id,
@@ -287,6 +322,7 @@ mod succinct_gateway {
             callback_calldata: Span<felt252>,
         ) {
             self.reentrancy_guard.start();
+            self.assert_only_prover();
 
             let input_hash = input.sha256();
             let output_hash = output.sha256();
@@ -357,6 +393,13 @@ mod succinct_gateway {
             packed_req.append_felt252(callback_selector);
             packed_req.append_u32(callback_gas_limit);
             packed_req.keccak()
+        }
+
+        /// Protects functions from being called by anoyone other
+        /// than the allowed provers.
+        fn assert_only_prover(self: @ContractState) {
+            let caller = starknet::info::get_caller_address();
+            assert(self.allowed_provers.read(caller), 'Only allowed provers can call');
         }
     }
 }
