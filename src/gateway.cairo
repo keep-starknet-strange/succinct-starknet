@@ -59,6 +59,7 @@ mod succinct_gateway {
         RequestFulfilled: RequestFulfilled,
         Call: Call,
         SetFeeVault: SetFeeVault,
+        ProverUpdated: ProverUpdated,
         #[flat]
         FunctionRegistryEvent: function_registry_cpt::Event,
         #[flat]
@@ -117,6 +118,12 @@ mod succinct_gateway {
     struct SetFeeVault {
         old_fee_vault: ContractAddress,
         new_fee_vault: ContractAddress,
+
+    #[derive(Drop, starknet::Event)]
+    struct ProverUpdated {
+        #[key]
+        prover: ContractAddress,
+        is_prover: bool,
     }
 
     mod Errors {
@@ -172,6 +179,32 @@ mod succinct_gateway {
                 );
             self.fee_vault_address.write(_fee_vault);
         }
+
+        /// Returns whether the specified prover is allowed or disallowed.
+        ///
+        /// # Arguments
+        ///
+        /// * `prover` - The prover address.
+        ///
+        /// # Returns
+        ///
+        /// * `is_prover` - Whether the prover is allowed or disallowed.
+        fn get_prover(self: @ContractState, prover: ContractAddress) -> bool {
+            self.allowed_provers.read(prover)
+        }
+
+        /// Sets the specified prover to be allowed or disallowed.
+        ///
+        /// # Arguments
+        /// 
+        /// * `prover` - The prover address.
+        /// * `is_prover` - Whether the prover is allowed or disallowed.
+        fn set_prover(ref self: ContractState, prover: ContractAddress, is_prover: bool) {
+            self.ownable.assert_only_owner();
+            self.allowed_provers.write(prover, is_prover);
+            self.emit(ProverUpdated { prover, is_prover });
+        }
+
         /// Creates a onchain request for a proof. The output and proof is fulfilled asynchronously
         /// by the provided callback.
         ///
@@ -292,6 +325,7 @@ mod succinct_gateway {
             proof: Bytes
         ) {
             self.reentrancy_guard.start();
+            self.assert_only_prover();
             let request_hash = InternalImpl::_request_hash(
                 nonce,
                 function_id,
@@ -310,6 +344,8 @@ mod succinct_gateway {
                 .verify(input_hash, output_hash, proof);
             assert(is_valid_proof, Errors::INVALID_PROOF);
 
+            // Note : call_contract_syscall will always revert if the callback fails,
+            //        so we don't need to check the result
             self.is_callback.write(true);
             call_contract_syscall(
                 address: callback_addr,
@@ -335,6 +371,7 @@ mod succinct_gateway {
             callback_calldata: Span<felt252>,
         ) {
             self.reentrancy_guard.start();
+            self.assert_only_prover();
 
             let input_hash = input.sha256();
             let output_hash = output.sha256();
@@ -354,6 +391,8 @@ mod succinct_gateway {
             let (_, next_header) = output.read_u256(offset);
             self.verified_output.write((data_commitment, next_header));
 
+            // Note : call_contract_syscall will always revert if the callback fails,
+            //        so we don't need to check the result
             call_contract_syscall(
                 address: callback_addr,
                 entry_point_selector: callback_selector,
@@ -403,6 +442,13 @@ mod succinct_gateway {
             packed_req.append_felt252(callback_selector);
             packed_req.append_u32(callback_gas_limit);
             packed_req.keccak()
+        }
+
+        /// Protects functions from being called by anoyone other
+        /// than the allowed provers.
+        fn assert_only_prover(self: @ContractState) {
+            let caller = starknet::info::get_caller_address();
+            assert(self.allowed_provers.read(caller), 'Only allowed provers can call');
         }
     }
 }
