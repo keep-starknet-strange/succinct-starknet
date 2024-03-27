@@ -1,6 +1,7 @@
 #[starknet::contract]
 mod succinct_gateway {
     use alexandria_bytes::{Bytes, BytesTrait};
+    use alexandria_encoding::sol_abi::{SolAbiEncodeTrait, SolAbiDecodeTrait};
     use core::array::SpanTrait;
     use openzeppelin::access::ownable::{OwnableComponent as ownable_cpt, interface::IOwnable};
     use openzeppelin::security::reentrancyguard::ReentrancyGuardComponent;
@@ -389,8 +390,9 @@ mod succinct_gateway {
             self.verified_input_hash.write(input_hash);
 
             // TODO: make generic after refactor
-            let (offset, data_commitment) = output.read_u256(0);
-            let (_, next_header) = output.read_u256(offset);
+            let mut offset = 0;
+            let data_commitment: u256 = output.decode(ref offset);
+            let next_header: u256 = output.decode(ref offset);
             self.verified_output.write((data_commitment, next_header));
 
             // Note : call_contract_syscall will always revert if the callback fails,
@@ -435,15 +437,15 @@ mod succinct_gateway {
             callback_selector: felt252,
             callback_gas_limit: u32
         ) -> u256 {
-            let mut packed_req = BytesTrait::new_empty();
-            packed_req.append_u32(nonce);
-            packed_req.append_u256(function_id);
-            packed_req.append_u256(input_hash);
-            packed_req.append_u256(context_hash);
-            packed_req.append_felt252(callback_addr.into());
-            packed_req.append_felt252(callback_selector);
-            packed_req.append_u32(callback_gas_limit);
-            packed_req.keccak()
+            BytesTrait::new_empty()
+                .encode_packed(nonce)
+                .encode_packed(function_id)
+                .encode_packed(input_hash)
+                .encode_packed(context_hash)
+                .encode_packed(callback_addr)
+                .encode_packed(callback_selector)
+                .encode_packed(callback_gas_limit)
+                .keccak()
         }
 
         /// Protects functions from being called by anoyone other
