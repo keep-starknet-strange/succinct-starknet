@@ -131,7 +131,6 @@ mod succinct_gateway {
         const INVALID_CALL: felt252 = 'Invalid call to verify';
         const INVALID_REQUEST: felt252 = 'Invalid request for fullfilment';
         const INVALID_PROOF: felt252 = 'Invalid proof provided';
-        const FEE_VAULT_NOT_INITIALIZED: felt252 = 'Fee vault not initialized';
     }
 
     #[constructor]
@@ -255,9 +254,10 @@ mod succinct_gateway {
             // Fee Vault
 
             let fee_vault_address = self.fee_vault_address.read();
-            assert(!fee_vault_address.is_zero(), Errors::FEE_VAULT_NOT_INITIALIZED);
-            let fee_vault = IFeeVaultDispatcher { contract_address: fee_vault_address };
-            fee_vault.deposit_native(callback_addr);
+            if (!fee_vault_address.is_zero()) {
+                let fee_vault = IFeeVaultDispatcher { contract_address: fee_vault_address };
+                fee_vault.deposit_native(callback_addr);
+            }
 
             request_hash
         }
@@ -294,9 +294,10 @@ mod succinct_gateway {
             // Fee Vault
 
             let fee_vault_address = self.fee_vault_address.read();
-            assert(!fee_vault_address.is_zero(), Errors::FEE_VAULT_NOT_INITIALIZED);
-            let fee_vault = IFeeVaultDispatcher { contract_address: fee_vault_address };
-            fee_vault.deposit_native(starknet::info::get_caller_address());
+            if (!fee_vault_address.is_zero()) {
+                let fee_vault = IFeeVaultDispatcher { contract_address: fee_vault_address };
+                fee_vault.deposit_native(starknet::info::get_caller_address());
+            }
         }
 
         /// If the call matches the currently verified function, returns the output. 
