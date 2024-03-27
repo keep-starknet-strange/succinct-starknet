@@ -118,6 +118,7 @@ mod succinct_gateway {
     struct SetFeeVault {
         old_fee_vault: ContractAddress,
         new_fee_vault: ContractAddress,
+    }
 
     #[derive(Drop, starknet::Event)]
     struct ProverUpdated {
