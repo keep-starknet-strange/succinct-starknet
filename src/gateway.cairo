@@ -53,6 +53,7 @@ mod succinct_gateway {
         RequestCallback: RequestCallback,
         RequestFulfilled: RequestFulfilled,
         Call: Call,
+        ProverUpdated: ProverUpdated,
         #[flat]
         FunctionRegistryEvent: function_registry_cpt::Event,
         #[flat]
@@ -105,6 +106,13 @@ mod succinct_gateway {
         output_hash: u256,
     }
 
+    #[derive(Drop, starknet::Event)]
+    struct ProverUpdated {
+        #[key]
+        prover: ContractAddress,
+        is_prover: bool,
+    }
+
     mod Errors {
         const INVALID_CALL: felt252 = 'Invalid call to verify';
         const INVALID_REQUEST: felt252 = 'Invalid request for fullfilment';
@@ -132,7 +140,6 @@ mod succinct_gateway {
         ///
         /// * `is_prover` - Whether the prover is allowed or disallowed.
         fn get_prover(self: @ContractState, prover: ContractAddress) -> bool {
-            self.ownable.assert_only_owner();
             self.allowed_provers.read(prover)
         }
 
@@ -145,6 +152,7 @@ mod succinct_gateway {
         fn set_prover(ref self: ContractState, prover: ContractAddress, is_prover: bool) {
             self.ownable.assert_only_owner();
             self.allowed_provers.write(prover, is_prover);
+            self.emit(ProverUpdated { prover, is_prover });
         }
 
 
