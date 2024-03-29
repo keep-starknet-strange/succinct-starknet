@@ -29,7 +29,7 @@ trait ISuccinctGateway<TContractState> {
         entry_calldata: Bytes,
         entry_gas_limit: u32
     );
-    fn verified_call(self: @TContractState, function_id: u256, input: Bytes) -> (u256, u256);
+    fn verified_call(self: @TContractState, function_id: u256, input: Bytes) -> Bytes;
     fn fulfill_callback(
         ref self: TContractState,
         nonce: u32,

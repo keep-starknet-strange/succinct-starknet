@@ -1,6 +1,6 @@
 #[starknet::contract]
 mod succinct_gateway {
-    use alexandria_bytes::{Bytes, BytesTrait};
+    use alexandria_bytes::{Bytes, BytesTrait, BytesStore};
     use alexandria_encoding::sol_abi::{SolAbiEncodeTrait, SolAbiDecodeTrait};
     use core::array::SpanTrait;
     use openzeppelin::access::ownable::{OwnableComponent as ownable_cpt, interface::IOwnable};
@@ -40,7 +40,7 @@ mod succinct_gateway {
         requests: LegacyMap<u32, u256>,
         verified_function_id: u256,
         verified_input_hash: u256,
-        verified_output: (u256, u256),
+        verified_output: Bytes,
         fee_vault_address: ContractAddress,
         #[substorage(v0)]
         function_registry: function_registry_cpt::Storage,
@@ -307,7 +307,7 @@ mod succinct_gateway {
         /// # Arguments
         /// * `function_id` The function identifier.
         /// * `input` The function input.
-        fn verified_call(self: @ContractState, function_id: u256, input: Bytes) -> (u256, u256) {
+        fn verified_call(self: @ContractState, function_id: u256, input: Bytes) -> Bytes {
             assert(self.verified_function_id.read() == function_id, Errors::INVALID_CALL);
             assert(self.verified_input_hash.read() == input.sha256(), Errors::INVALID_CALL);
 
@@ -388,12 +388,7 @@ mod succinct_gateway {
             // Set the current verified call.
             self.verified_function_id.write(function_id);
             self.verified_input_hash.write(input_hash);
-
-            // TODO: make generic after refactor
-            let mut offset = 0;
-            let data_commitment: u256 = output.decode(ref offset);
-            let next_header: u256 = output.decode(ref offset);
-            self.verified_output.write((data_commitment, next_header));
+            self.verified_output.write(output);
 
             // Note : call_contract_syscall will always revert if the callback fails,
             //        so we don't need to check the result
@@ -407,7 +402,7 @@ mod succinct_gateway {
             // reset current verified call
             self.verified_function_id.write(0);
             self.verified_input_hash.write(0);
-            self.verified_output.write((0, 0));
+            self.verified_output.write(BytesTrait::new_empty());
 
             self.emit(Call { function_id, input_hash, output_hash, });
 
