@@ -157,19 +157,10 @@ mod succinct_gateway {
 
     #[abi(embed_v0)]
     impl ISuccinctGatewayImpl of ISuccinctGateway<ContractState> {
-        /// Returns the fee vault address.
-        ///
-        /// # Returns
-        ///
-        /// * The fee vault address.
         fn get_fee_vault(self: @ContractState) -> ContractAddress {
             self.fee_vault_address.read()
         }
-        /// Sets the fee vault address.
-        ///
-        /// # Arguments
-        ///
-        /// * `_fee_vault` - The fee vault address.
+
         fn set_fee_vault(ref self: ContractState, _fee_vault: ContractAddress) {
             self.ownable.assert_only_owner();
             self
@@ -181,41 +172,19 @@ mod succinct_gateway {
             self.fee_vault_address.write(_fee_vault);
         }
 
-        /// Returns whether the specified prover is allowed or disallowed.
-        ///
-        /// # Arguments
-        ///
-        /// * `prover` - The prover address.
-        ///
-        /// # Returns
-        ///
-        /// * `is_prover` - Whether the prover is allowed or disallowed.
+
         fn get_prover(self: @ContractState, prover: ContractAddress) -> bool {
             self.allowed_provers.read(prover)
         }
 
-        /// Sets the specified prover to be allowed or disallowed.
-        ///
-        /// # Arguments
-        /// 
-        /// * `prover` - The prover address.
-        /// * `is_prover` - Whether the prover is allowed or disallowed.
+
         fn set_prover(ref self: ContractState, prover: ContractAddress, is_prover: bool) {
             self.ownable.assert_only_owner();
             self.allowed_provers.write(prover, is_prover);
             self.emit(ProverUpdated { prover, is_prover });
         }
 
-        /// Creates a onchain request for a proof. The output and proof is fulfilled asynchronously
-        /// by the provided callback.
-        ///
-        /// # Arguments
-        ///
-        /// * `function_id` - The function identifier.
-        /// * `input` - The function input.
-        /// * `context` - The function context.
-        /// * `callback_selector` - The selector of the callback function.
-        /// * `callback_gas_limit` - The gas limit for the callback function.
+
         fn request_callback(
             ref self: ContractState,
             function_id: u256,
@@ -262,15 +231,7 @@ mod succinct_gateway {
 
             request_hash
         }
-        /// Creates a proof request for a call. Equivalent to an off-chain request through an API.
-        ///
-        /// # Arguments
-        ///
-        /// * `function_id` - The function identifier.
-        /// * `input` - The function input.
-        /// * `entry_address` - The address of the callback contract.
-        /// * `entry_calldata` - The entry calldata for the call.
-        /// * `entry_gas_limit` - The gas limit for the call.
+
         fn request_call(
             ref self: ContractState,
             function_id: u256,
@@ -301,12 +262,6 @@ mod succinct_gateway {
             }
         }
 
-        /// If the call matches the currently verified function, returns the output. 
-        /// Else this function reverts.
-        ///
-        /// # Arguments
-        /// * `function_id` The function identifier.
-        /// * `input` The function input.
         fn verified_call(self: @ContractState, function_id: u256, input: Bytes) -> (u256, u256) {
             assert(self.verified_function_id.read() == function_id, Errors::INVALID_CALL);
             assert(self.verified_input_hash.read() == input.sha256(), Errors::INVALID_CALL);

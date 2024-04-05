@@ -96,16 +96,11 @@ mod succinct_fee_vault {
 
     #[abi(embed_v0)]
     impl IFeeVaultImpl of IFeeVault<ContractState> {
-        /// Get the current native currency address 
-        /// # Returns
-        /// The native currency address defined. 
         fn get_native_currency(self: @ContractState) -> ContractAddress {
             self.native_currency_address.read()
         }
 
-        /// Set the native currency address 
-        /// # Arguments
-        /// * `_new_native_address`- The new native currency address to be set
+
         fn set_native_currency(ref self: ContractState, _new_native_address: ContractAddress) {
             self.ownable.assert_only_owner();
             assert(!_new_native_address.is_zero(), Errors::InvalidToken);
@@ -113,48 +108,30 @@ mod succinct_fee_vault {
         }
 
 
-        /// Check if the specified deductor is allowed to deduct from the vault.
-        /// # Arguments
-        /// * `_deductor` - The deductor to check.
-        /// # Returns
-        /// True if the deductor is allowed to deduct from the vault, false otherwise.
         fn is_deductor(self: @ContractState, _deductor: ContractAddress) -> bool {
             self.allowed_deductors.read(_deductor)
         }
 
-        /// Add the specified deductor 
-        /// # Arguments
-        /// * `_deductor` - The address of the deductor to add.
+
         fn add_deductor(ref self: ContractState, _deductor: ContractAddress) {
             self.ownable.assert_only_owner();
             self.allowed_deductors.write(_deductor, true);
         }
 
-        /// Remove the specified deductor 
-        /// # Arguments
-        /// * `_deductor` - The address of the deductor to remove.
+
         fn remove_deductor(ref self: ContractState, _deductor: ContractAddress) {
             self.ownable.assert_only_owner();
             self.allowed_deductors.write(_deductor, false);
         }
 
-        /// Get the balance for a given token and account to use for Succinct services.
-        /// # Arguments
-        /// * `_account` - The account to retrieve the balance for.
-        /// * `_token` - The token address to consider.
-        /// # Returns
-        /// The associated balance.
+
         fn get_account_balance(
             self: @ContractState, _account: ContractAddress, _token: ContractAddress
         ) -> u256 {
             self.balances.read((_token, _account))
         }
 
-        /// Deposit the specified amount of native currency from the caller.
-        /// Dev: the native currency address is defined in the storage slot native_currency
-        /// Dev: MUST approve this contract to spend at least _amount of the native_currency before calling this.
-        /// # Arguments
-        /// * `_account` - The account to deposit the native currency for.
+
         fn deposit_native(ref self: ContractState, _account: ContractAddress) {
             let native_currency = self.native_currency_address.read();
             self
@@ -163,12 +140,7 @@ mod succinct_fee_vault {
                 );
         }
 
-        /// Deposit the specified amount of the specified token from the caller.
-        /// Dev: MUST approve this contract to spend at least _amount of _token before calling this.
-        /// # Arguments
-        /// * `_account` - The account to deposit the native currency for.
-        /// * `_token` - The address of the token to deposit.
-        /// * `_amount` - The amoun to deposit. 
+
         fn deposit(
             ref self: ContractState,
             _account: ContractAddress,
@@ -189,9 +161,7 @@ mod succinct_fee_vault {
             self.emit(Received { account: _account, token: _token, amount: _amount });
         }
 
-        /// Deduct the specified amount of native currency from the specified account.
-        /// # Arguments
-        /// * `_account` - The account to deduct the native currency from.
+
         fn deduct_native(ref self: ContractState, _account: ContractAddress) {
             let native_currency = self.native_currency_address.read();
             self
@@ -200,11 +170,7 @@ mod succinct_fee_vault {
                 );
         }
 
-        /// Deduct the specified amount of native currency from the specified account.
-        /// # Arguments
-        /// * `_account` - The account to deduct the native currency from.
-        /// * `_token` - The address of the token to deduct.
-        /// * `_amount` - The amount of the token to deduct.
+
         fn deduct(
             ref self: ContractState,
             _account: ContractAddress,
@@ -230,10 +196,7 @@ mod succinct_fee_vault {
             self.collect(_to, native_currency, _amount);
         }
 
-        /// Collect the specified amount of the specified token.
-        /// * `_to`- The address to send the collected tokens to.
-        /// * `_token` - The address of the token to collect.
-        /// *  `_amount`- The amount of the token to collect.
+
         fn collect(
             ref self: ContractState, _to: ContractAddress, _token: ContractAddress, _amount: u256
         ) {
