@@ -157,11 +157,10 @@ mod succinct_gateway {
 
     #[abi(embed_v0)]
     impl ISuccinctGatewayImpl of ISuccinctGateway<ContractState> {
-       
         fn get_fee_vault(self: @ContractState) -> ContractAddress {
             self.fee_vault_address.read()
         }
-       
+
         fn set_fee_vault(ref self: ContractState, _fee_vault: ContractAddress) {
             self.ownable.assert_only_owner();
             self
@@ -173,12 +172,12 @@ mod succinct_gateway {
             self.fee_vault_address.write(_fee_vault);
         }
 
-        
+
         fn get_prover(self: @ContractState, prover: ContractAddress) -> bool {
             self.allowed_provers.read(prover)
         }
 
-       
+
         fn set_prover(ref self: ContractState, prover: ContractAddress, is_prover: bool) {
             self.ownable.assert_only_owner();
             self.allowed_provers.write(prover, is_prover);
@@ -232,7 +231,7 @@ mod succinct_gateway {
 
             request_hash
         }
-       
+
         fn request_call(
             ref self: ContractState,
             function_id: u256,

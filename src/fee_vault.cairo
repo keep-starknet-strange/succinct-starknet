@@ -96,12 +96,11 @@ mod succinct_fee_vault {
 
     #[abi(embed_v0)]
     impl IFeeVaultImpl of IFeeVault<ContractState> {
-        
         fn get_native_currency(self: @ContractState) -> ContractAddress {
             self.native_currency_address.read()
         }
 
-       
+
         fn set_native_currency(ref self: ContractState, _new_native_address: ContractAddress) {
             self.ownable.assert_only_owner();
             assert(!_new_native_address.is_zero(), Errors::InvalidToken);
@@ -109,31 +108,30 @@ mod succinct_fee_vault {
         }
 
 
-       
         fn is_deductor(self: @ContractState, _deductor: ContractAddress) -> bool {
             self.allowed_deductors.read(_deductor)
         }
 
-    
+
         fn add_deductor(ref self: ContractState, _deductor: ContractAddress) {
             self.ownable.assert_only_owner();
             self.allowed_deductors.write(_deductor, true);
         }
 
-     
+
         fn remove_deductor(ref self: ContractState, _deductor: ContractAddress) {
             self.ownable.assert_only_owner();
             self.allowed_deductors.write(_deductor, false);
         }
 
-       
+
         fn get_account_balance(
             self: @ContractState, _account: ContractAddress, _token: ContractAddress
         ) -> u256 {
             self.balances.read((_token, _account))
         }
 
-     
+
         fn deposit_native(ref self: ContractState, _account: ContractAddress) {
             let native_currency = self.native_currency_address.read();
             self
@@ -142,7 +140,7 @@ mod succinct_fee_vault {
                 );
         }
 
-     
+
         fn deposit(
             ref self: ContractState,
             _account: ContractAddress,
@@ -172,7 +170,7 @@ mod succinct_fee_vault {
                 );
         }
 
-    
+
         fn deduct(
             ref self: ContractState,
             _account: ContractAddress,
@@ -198,7 +196,7 @@ mod succinct_fee_vault {
             self.collect(_to, native_currency, _amount);
         }
 
- 
+
         fn collect(
             ref self: ContractState, _to: ContractAddress, _token: ContractAddress, _amount: u256
         ) {
